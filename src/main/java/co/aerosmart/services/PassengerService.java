@@ -156,4 +156,11 @@ public class PassengerService implements UserDetailsService {
             .orElseThrow(() -> new UsernameNotFoundException("Pasajero no encontrado: " + email));
         return new User(passenger.getEmail(), passenger.getPassword(), new ArrayList<>());
     }
+
+    @Transactional(readOnly = true)
+    public AuthResponse refreshToken(String email) {
+        Passenger passenger = findByEmail(email);
+        String token = jwtUtil.generateToken(passenger.getEmail());
+        return new AuthResponse(token, passengerMapper.toDTO(passenger));
+    }
 }
