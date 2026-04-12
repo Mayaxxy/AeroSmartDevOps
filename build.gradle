@@ -9,9 +9,8 @@ version = '0.0.1-SNAPSHOT'
 description = 'aeroSmart'
 
 java {
-	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
-	}
+	sourceCompatibility = '21'
+	targetCompatibility = '21'
 }
 
 repositories {
