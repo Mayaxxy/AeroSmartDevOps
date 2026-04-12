@@ -7,14 +7,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Entidad que representa un pasajero en el sistema FlyTrack.
- * Un pasajero debe estar registrado para acceder a sus vuelos y realizar check-in.
- */
 @Entity
 @Table(name = "passengers")
 @Data
@@ -26,26 +23,47 @@ public class Passenger {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "El documento es obligatorio")
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false, length = 10)
+    private String documentType; // CC, PASSPORT, CE
+
+    @NotBlank
+    @Column(unique = true, nullable = false, length = 20)
     private String documentId;
 
-    @NotBlank(message = "El nombre es obligatorio")
+    @NotBlank
+    @Column(nullable = false, length = 50)
     private String firstName;
 
-    @NotBlank(message = "El apellido es obligatorio")
+    @Column(length = 50)
+    private String middleName;
+
+    @NotBlank
+    @Column(nullable = false, length = 50)
     private String lastName;
 
-    @Email(message = "Email debe ser válido")
-    @NotBlank(message = "El email es obligatorio")
-    @Column(unique = true, nullable = false)
+    @Column(length = 50)
+    private String secondLastName;
+
+    @Column(nullable = false)
+    private LocalDate birthDate;
+
+    @Email
+    @NotBlank
+    @Column(unique = true, nullable = false, length = 100)
     private String email;
 
-    @NotBlank(message = "El teléfono es obligatorio")
+    @NotBlank
+    @Column(nullable = false, length = 15)
     private String phone;
 
-    @NotBlank(message = "La contraseña es obligatoria")
+    @NotBlank
     private String password;
+
+    @Column(name = "accepted_data_policy", nullable = false)
+    private boolean acceptedDataPolicy;
+
+    @Column(nullable = false, length = 20)
+    private String role = "PASSENGER"; // PASSENGER, ADMIN
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

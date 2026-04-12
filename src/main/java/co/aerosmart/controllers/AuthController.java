@@ -54,4 +54,13 @@ public class AuthController {
         PassengerDTO profile = passengerService.getProfile(email);
         return ResponseEntity.ok(profile);
     }
+
+    @PutMapping("/profile")
+    public ResponseEntity<PassengerDTO> updateProfile(
+            Authentication authentication,
+            @Valid @RequestBody co.aerosmart.dto.UpdateProfileRequest request) {
+        String email = authentication.getName();
+        PassengerDTO updated = passengerService.updateProfile(email, request);
+        return ResponseEntity.ok(updated);
+    }
 }

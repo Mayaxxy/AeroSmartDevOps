@@ -28,6 +28,40 @@ public class FlightService {
     private final NotificationService notificationService;
 
     /**
+     * Crea un nuevo vuelo (solo admin).
+     */
+    @Transactional
+    public FlightDTO createFlight(co.aerosmart.dto.CreateFlightRequest request) {
+        if (flightRepository.findByFlightCode(request.getFlightCode()).isPresent()) {
+            throw new IllegalArgumentException("Ya existe un vuelo con el código: " + request.getFlightCode());
+        }
+
+        Flight flight = new Flight();
+        flight.setFlightCode(request.getFlightCode().toUpperCase().trim());
+        flight.setOriginAirport(request.getOriginAirport().toUpperCase().trim());
+        flight.setDestinationAirport(request.getDestinationAirport().toUpperCase().trim());
+        flight.setDepartureTime(request.getDepartureTime());
+        flight.setArrivalTime(request.getArrivalTime());
+        flight.setGate(request.getGate());
+        flight.setStatus(co.aerosmart.model.FlightStatus.SCHEDULED);
+
+        flight = flightRepository.save(flight);
+        log.info("Vuelo creado: {}", flight.getFlightCode());
+        return flightMapper.toDTO(flight);
+    }
+
+    /**
+     * Obtiene todos los vuelos (para admin).
+     */
+    @Transactional(readOnly = true)
+    public List<FlightDTO> getAllFlights() {
+        return flightRepository.findAll()
+            .stream()
+            .map(flightMapper::toDTO)
+            .collect(Collectors.toList());
+    }
+
+    /**
      * Busca un vuelo por su código.
      */
     @Transactional(readOnly = true)

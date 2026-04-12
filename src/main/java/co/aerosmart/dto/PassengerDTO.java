@@ -14,20 +14,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PassengerDTO {
     private Long id;
-    
-    @NotBlank(message = "El documento es obligatorio")
     private String documentId;
-    
-    @NotBlank(message = "El nombre es obligatorio")
+    private String documentType;
     private String firstName;
-    
-    @NotBlank(message = "El apellido es obligatorio")
+    private String middleName;
     private String lastName;
-    
-    @Email(message = "Email debe ser válido")
-    @NotBlank(message = "El email es obligatorio")
+    private String secondLastName;
+    private java.time.LocalDate birthDate;
     private String email;
-    
-    @NotBlank(message = "El teléfono es obligatorio")
     private String phone;
+    private String role;
 }

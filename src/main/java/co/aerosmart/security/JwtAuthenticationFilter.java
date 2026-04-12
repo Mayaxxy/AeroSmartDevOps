@@ -41,20 +41,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             jwt = authorizationHeader.substring(7);
             try {
                 email = jwtUtil.extractEmail(jwt);
+                logger.info("Email extraído del token: " + email);
             } catch (Exception e) {
                 logger.error("Error extrayendo email del token: " + e.getMessage());
             }
+        } else {
+            logger.debug("No Authorization header found or invalid format");
         }
 
         // Validar token y establecer autenticación
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = passengerService.loadUserByUsername(email);
-
-            if (jwtUtil.validateToken(jwt, email)) {
-                UsernamePasswordAuthenticationToken authToken = 
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+            try {
+                if (jwtUtil.validateToken(jwt, email)) {
+                    logger.info("Token válido para: " + email);
+                    UserDetails userDetails = passengerService.loadUserByUsername(email);
+                    UsernamePasswordAuthenticationToken authToken = 
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    logger.info("Autenticación establecida para: " + email);
+                } else {
+                    logger.warn("Token inválido para: " + email);
+                }
+            } catch (Exception e) {
+                logger.error("Error validando token JWT: " + e.getMessage(), e);
             }
         }
 
