@@ -84,6 +84,23 @@ public class JwtUtil {
     }
 
     /**
+     * Genera un token JWT para un usuario con rol.
+     */
+    public String generateToken(String email, String role) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role);
+        return createToken(claims, email);
+    }
+
+    /**
+     * Extrae el rol del token.
+     */
+    public String extractRole(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("role", String.class);
+    }
+
+    /**
      * Crea el token JWT con claims y subject.
      */
     private String createToken(Map<String, Object> claims, String subject) {

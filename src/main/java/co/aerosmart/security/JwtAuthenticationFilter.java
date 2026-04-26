@@ -35,6 +35,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response, 
                                     FilterChain filterChain) throws ServletException, IOException {
         
+        // Skip JWT processing for public endpoints
+        String path = request.getRequestURI();
+        if (path.startsWith("/api/auth/") || 
+            path.startsWith("/api/flights/public/") || 
+            path.equals("/actuator/health")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
         final String authorizationHeader = request.getHeader("Authorization");
 
         String email = null;
@@ -58,12 +67,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 if (jwtUtil.validateToken(jwt, email)) {
                     logger.info("Token válido para: " + email);
-                    UserDetails userDetails = passengerService.loadUserByUsername(email);
+                    
+                    // Extract role from token instead of database query
+                    String role = jwtUtil.extractRole(jwt);
+                    if (role == null || role.isEmpty()) {
+                        logger.warn("Token sin rol para: " + email + ", usando USER por defecto");
+                        role = "USER"; // Default role if not present in token
+                    }
+                    
+                    logger.info("Rol extraído del token: " + role);
+                    
+                    // Create UserDetails directly from token claims without database query
+                    UserDetails userDetails = org.springframework.security.core.userdetails.User
+                        .withUsername(email)
+                        .password("") // Password not needed for JWT authentication
+                        .authorities("ROLE_" + role)
+                        .build();
+                    
                     UsernamePasswordAuthenticationToken authToken = 
                         new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                    logger.info("Autenticación establecida para: " + email);
+                    logger.info("Autenticación establecida para: " + email + " con rol: ROLE_" + role);
                 } else {
                     logger.warn("Token inválido para: " + email);
                 }

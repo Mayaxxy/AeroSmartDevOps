@@ -56,11 +56,12 @@ public class PassengerService implements UserDetailsService {
         passenger.setEmail(request.getEmail());
         passenger.setPhone(request.getPhone());
         passenger.setPassword(passwordEncoder.encode(request.getPassword()));
+        passenger.setRole("USER"); // Asignar rol por defecto
 
         passenger = passengerRepository.save(passenger);
 
-        // Generar token JWT
-        String token = jwtUtil.generateToken(passenger.getEmail());
+        // Generar token JWT con rol
+        String token = jwtUtil.generateToken(passenger.getEmail(), passenger.getRole());
 
         return new AuthResponse(token, passengerMapper.toDTO(passenger));
     }
@@ -79,8 +80,8 @@ public class PassengerService implements UserDetailsService {
             throw new UsernameNotFoundException("Credenciales inválidas");
         }
 
-        // Generar token JWT
-        String token = jwtUtil.generateToken(passenger.getEmail());
+        // Generar token JWT con rol
+        String token = jwtUtil.generateToken(passenger.getEmail(), passenger.getRole());
 
         return new AuthResponse(token, passengerMapper.toDTO(passenger));
     }
@@ -121,6 +122,10 @@ public class PassengerService implements UserDetailsService {
         Passenger passenger = passengerRepository.findByEmail(email)
             .orElseThrow(() -> new UsernameNotFoundException("Pasajero no encontrado: " + email));
 
-        return new User(passenger.getEmail(), passenger.getPassword(), new ArrayList<>());
+        String role = passenger.getRole() != null ? passenger.getRole() : "USER";
+        return User.withUsername(passenger.getEmail())
+            .password(passenger.getPassword())
+            .authorities("ROLE_" + role)
+            .build();
     }
 }

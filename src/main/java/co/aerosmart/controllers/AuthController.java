@@ -55,6 +55,8 @@ public class AuthController {
         return ResponseEntity.ok(profile);
     }
 
+    // TODO: Implementar updateProfile en PassengerService
+    /*
     @PutMapping("/profile")
     public ResponseEntity<PassengerDTO> updateProfile(
             Authentication authentication,
@@ -63,15 +65,5 @@ public class AuthController {
         PassengerDTO updated = passengerService.updateProfile(email, request);
         return ResponseEntity.ok(updated);
     }
-
-    /**
-     * Refresca el token JWT para extender la sesión.
-     * POST /api/auth/refresh
-     */
-    @PostMapping("/refresh")
-    public ResponseEntity<AuthResponse> refreshToken(Authentication authentication) {
-        String email = authentication.getName();
-        AuthResponse response = passengerService.refreshToken(email);
-        return ResponseEntity.ok(response);
-    }
+    */
 }

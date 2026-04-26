@@ -20,7 +20,7 @@ public class PassengerDTO {
     private String middleName;
     private String lastName;
     private String secondLastName;
-    private java.time.LocalDate birthDate;
+    private java.time.LocalDateTime birthDate;
     private String email;
     private String phone;
     private String role;
