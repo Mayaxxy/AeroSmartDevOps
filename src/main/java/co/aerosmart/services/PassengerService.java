@@ -1,12 +1,20 @@
 package co.aerosmart.services;
 
 import co.aerosmart.dto.AuthResponse;
+import co.aerosmart.dto.CreateReceptionistRequest;
 import co.aerosmart.dto.LoginRequest;
 import co.aerosmart.dto.PassengerDTO;
 import co.aerosmart.dto.RegisterRequest;
+import co.aerosmart.dto.ReservationDTO;
+import co.aerosmart.dto.UpdateProfileRequest;
 import co.aerosmart.mappers.PassengerMapper;
+import co.aerosmart.mappers.ReservationMapper;
 import co.aerosmart.model.Passenger;
+import co.aerosmart.model.Reservation;
+import co.aerosmart.model.ReservationStatus;
+import co.aerosmart.model.Role;
 import co.aerosmart.repository.PassengerRepository;
+import co.aerosmart.repository.ReservationRepository;
 import co.aerosmart.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.User;
@@ -17,7 +25,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Servicio para gestión de pasajeros y autenticación.
@@ -31,6 +44,8 @@ public class PassengerService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final PassengerMapper passengerMapper;
+    private final ReservationRepository reservationRepository;
+    private final ReservationMapper reservationMapper;
 
     /**
      * Registra un nuevo pasajero en el sistema.
@@ -56,12 +71,12 @@ public class PassengerService implements UserDetailsService {
         passenger.setEmail(request.getEmail());
         passenger.setPhone(request.getPhone());
         passenger.setPassword(passwordEncoder.encode(request.getPassword()));
-        passenger.setRole("USER"); // Asignar rol por defecto
+        passenger.setRole(Role.PASSENGER); // Asignar rol por defecto
 
         passenger = passengerRepository.save(passenger);
 
         // Generar token JWT con rol
-        String token = jwtUtil.generateToken(passenger.getEmail(), passenger.getRole());
+        String token = jwtUtil.generateToken(passenger.getEmail(), passenger.getRole().name());
 
         return new AuthResponse(token, passengerMapper.toDTO(passenger));
     }
@@ -81,7 +96,7 @@ public class PassengerService implements UserDetailsService {
         }
 
         // Generar token JWT con rol
-        String token = jwtUtil.generateToken(passenger.getEmail(), passenger.getRole());
+        String token = jwtUtil.generateToken(passenger.getEmail(), passenger.getRole().name());
 
         return new AuthResponse(token, passengerMapper.toDTO(passenger));
     }
@@ -114,6 +129,122 @@ public class PassengerService implements UserDetailsService {
     }
 
     /**
+     * Actualiza el perfil de un pasajero.
+     * Permite actualizar: firstName, middleName, lastName, secondLastName, birthDate, phone, documentType.
+     * Prohibe modificar: email, documentId.
+     * Soporta cambio opcional de contraseña validando currentPassword.
+     */
+    @Transactional
+    public PassengerDTO updateProfile(String email, UpdateProfileRequest request) {
+        // Buscar pasajero por email
+        Passenger passenger = findByEmail(email);
+
+        // Actualizar campos permitidos (solo si no son null)
+        if (request.getFirstName() != null) {
+            passenger.setFirstName(request.getFirstName());
+        }
+        if (request.getMiddleName() != null) {
+            passenger.setMiddleName(request.getMiddleName());
+        }
+        if (request.getLastName() != null) {
+            passenger.setLastName(request.getLastName());
+        }
+        if (request.getSecondLastName() != null) {
+            passenger.setSecondLastName(request.getSecondLastName());
+        }
+        if (request.getDocumentType() != null) {
+            passenger.setDocumentType(request.getDocumentType());
+        }
+        if (request.getBirthDate() != null) {
+            // Convertir LocalDate a LocalDateTime (inicio del día)
+            passenger.setBirthDate(request.getBirthDate().atStartOfDay());
+        }
+        if (request.getPhone() != null) {
+            passenger.setPhone(request.getPhone());
+        }
+
+        // Cambio de contraseña (opcional)
+        if (request.getCurrentPassword() != null && request.getNewPassword() != null) {
+            // Validar contraseña actual
+            if (!passwordEncoder.matches(request.getCurrentPassword(), passenger.getPassword())) {
+                throw new IllegalArgumentException("La contraseña actual es incorrecta");
+            }
+            // Actualizar contraseña
+            passenger.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        } else if (request.getCurrentPassword() != null || request.getNewPassword() != null) {
+            // Si solo se proporciona uno de los dos campos, lanzar error
+            throw new IllegalArgumentException("Para cambiar la contraseña, debe proporcionar tanto la contraseña actual como la nueva");
+        }
+
+        // Guardar cambios
+        passenger = passengerRepository.save(passenger);
+
+        return passengerMapper.toDTO(passenger);
+    }
+
+    /**
+     * Crea un nuevo usuario recepcionista.
+     * Solo puede ser ejecutado por usuarios con rol ADMIN.
+     */
+    @Transactional
+    public PassengerDTO createReceptionist(CreateReceptionistRequest request) {
+        // Validar que no exista el documento
+        if (passengerRepository.existsByDocumentId(request.getDocumentId())) {
+            throw new IllegalArgumentException("Ya existe un usuario con ese documento");
+        }
+
+        // Validar que no exista el email
+        if (passengerRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("Ya existe un usuario con ese email");
+        }
+
+        // Crear nuevo recepcionista
+        Passenger receptionist = new Passenger();
+        receptionist.setDocumentId(request.getDocumentId());
+        receptionist.setFirstName(request.getFirstName());
+        receptionist.setLastName(request.getLastName());
+        receptionist.setEmail(request.getEmail());
+        receptionist.setPhone(request.getPhone());
+        receptionist.setPassword(passwordEncoder.encode(request.getPassword()));
+        receptionist.setRole(Role.RECEPCIONISTA); // Asignar rol RECEPCIONISTA
+
+        receptionist = passengerRepository.save(receptionist);
+
+        return passengerMapper.toDTO(receptionist);
+    }
+
+    /**
+     * Obtiene las reservas del pasajero autenticado.
+     * Permite filtrar por estado (ej: ACTIVE) y ordena por fecha de vuelo descendente.
+     * 
+     * @param email Email del pasajero autenticado
+     * @param status Filtro opcional por estado de reserva
+     * @return Lista de reservas ordenadas por fecha de vuelo descendente
+     */
+    @Transactional(readOnly = true)
+    public List<ReservationDTO> getPassengerReservations(String email, ReservationStatus status) {
+        // Buscar pasajero por email
+        Passenger passenger = findByEmail(email);
+        
+        // Obtener reservas según filtro de estado
+        List<Reservation> reservations;
+        if (status != null) {
+            reservations = reservationRepository.findByPassengerIdAndStatus(passenger.getId(), status);
+        } else {
+            reservations = reservationRepository.findByPassengerId(passenger.getId());
+        }
+        
+        // Ordenar por fecha de vuelo descendente y mapear a DTO
+        return reservations.stream()
+            .sorted(Comparator.comparing(
+                (Reservation r) -> r.getFlight().getDepartureTime(),
+                Comparator.reverseOrder()
+            ))
+            .map(reservationMapper::toDTO)
+            .collect(Collectors.toList());
+    }
+
+    /**
      * Implementación de UserDetailsService para Spring Security.
      */
     @Override
@@ -122,7 +253,7 @@ public class PassengerService implements UserDetailsService {
         Passenger passenger = passengerRepository.findByEmail(email)
             .orElseThrow(() -> new UsernameNotFoundException("Pasajero no encontrado: " + email));
 
-        String role = passenger.getRole() != null ? passenger.getRole() : "USER";
+        String role = passenger.getRole() != null ? passenger.getRole().name() : "PASSENGER";
         return User.withUsername(passenger.getEmail())
             .password(passenger.getPassword())
             .authorities("ROLE_" + role)

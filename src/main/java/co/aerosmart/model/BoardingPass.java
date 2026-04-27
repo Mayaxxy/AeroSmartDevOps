@@ -31,6 +31,9 @@ public class BoardingPass {
     @JoinColumn(name = "check_in_id", nullable = false, unique = true)
     private CheckIn checkIn;
 
+    @Column(name = "receptionist_id")
+    private Long receptionistId;
+
     @NotBlank
     @Column(unique = true, nullable = false)
     private String boardingToken;

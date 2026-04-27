@@ -4,9 +4,14 @@ import co.aerosmart.dto.BoardingPassDTO;
 import co.aerosmart.mappers.BoardingPassMapper;
 import co.aerosmart.model.BoardingPass;
 import co.aerosmart.model.CheckIn;
+import co.aerosmart.model.Passenger;
 import co.aerosmart.repository.BoardingPassRepository;
+import co.aerosmart.repository.PassengerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +33,11 @@ public class BoardingPassService {
     private final BoardingPassRepository boardingPassRepository;
     private final QRCodeService qrCodeService;
     private final BoardingPassMapper boardingPassMapper;
+    private final PassengerRepository passengerRepository;
 
     /**
      * Genera un pase de abordaje con QR para un check-in.
+     * Si el usuario autenticado es RECEPCIONISTA, registra su ID para auditoría.
      */
     @Transactional
     public BoardingPassDTO generateBoardingPass(CheckIn checkIn) {
@@ -55,6 +62,23 @@ public class BoardingPassService {
         boardingPass.setCheckIn(checkIn);
         boardingPass.setBoardingToken(boardingToken);
         boardingPass.setValidUntil(validUntil);
+        
+        // Extraer receptionistId si el usuario autenticado es RECEPCIONISTA
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            boolean isReceptionist = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role -> role.equals("ROLE_RECEPCIONISTA"));
+            
+            if (isReceptionist) {
+                String receptionistEmail = authentication.getName();
+                Passenger receptionist = passengerRepository.findByEmail(receptionistEmail)
+                    .orElseThrow(() -> new IllegalStateException("Recepcionista no encontrado"));
+                boardingPass.setReceptionistId(receptionist.getId());
+                log.info("Pase de abordaje generado por recepcionista ID: {}", receptionist.getId());
+            }
+        }
+        
         boardingPass = boardingPassRepository.save(boardingPass);
 
         log.info("Pase de abordaje generado para check-in {}", checkIn.getId());
@@ -80,6 +104,32 @@ public class BoardingPassService {
             throw new IllegalArgumentException("Este pase no pertenece al pasajero autenticado");
         }
 
+        BoardingPass boardingPass = boardingPassRepository.findByCheckInId(checkInId)
+            .orElseThrow(() -> new IllegalArgumentException("Pase de abordaje no encontrado"));
+
+        // Regenerar token si es necesario (QR dinámico)
+        if (boardingPass.needsRegeneration() && boardingPass.isValid()) {
+            String newToken = UUID.randomUUID().toString();
+            boardingPass.setBoardingToken(newToken);
+            boardingPass.setLastRegeneratedAt(LocalDateTime.now());
+            boardingPass = boardingPassRepository.save(boardingPass);
+            
+            log.info("Token de pase de abordaje regenerado para check-in {}", checkInId);
+        }
+
+        // Generar QR code
+        String qrCodeBase64 = qrCodeService.generateQRCode(boardingPass.getBoardingToken());
+
+        return boardingPassMapper.toDTO(boardingPass, qrCodeBase64);
+    }
+
+    /**
+     * Obtiene el pase de abordaje por check-in ID sin validar pasajero.
+     * Usado por recepcionistas para obtener pases de abordaje de cualquier pasajero.
+     * Si el QR necesita regeneración (cada 60 seg), genera uno nuevo.
+     */
+    @Transactional
+    public BoardingPassDTO getBoardingPassByCheckInId(Long checkInId) {
         BoardingPass boardingPass = boardingPassRepository.findByCheckInId(checkInId)
             .orElseThrow(() -> new IllegalArgumentException("Pase de abordaje no encontrado"));
 

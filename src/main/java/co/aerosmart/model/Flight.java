@@ -53,6 +53,10 @@ public class Flight {
 
     private String gate;
 
+    @ManyToOne
+    @JoinColumn(name = "airplane_id")
+    private Airplane airplane;
+
     @Column(name = "boarding_start_time")
     private LocalDateTime boardingStartTime;
 

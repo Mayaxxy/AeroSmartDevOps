@@ -4,9 +4,13 @@ import co.aerosmart.dto.BoardingPassDTO;
 import co.aerosmart.dto.CheckInRequest;
 import co.aerosmart.model.*;
 import co.aerosmart.repository.CheckInRepository;
+import co.aerosmart.repository.PassengerRepository;
 import co.aerosmart.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +26,7 @@ public class CheckInService {
 
     private final CheckInRepository checkInRepository;
     private final ReservationRepository reservationRepository;
+    private final PassengerRepository passengerRepository;
     private final BoardingPassService boardingPassService;
 
     /**
@@ -31,6 +36,8 @@ public class CheckInService {
      * - El vuelo no esté cancelado
      * - No exista un check-in activo previo
      * - Esté dentro de la ventana de check-in (24-48h antes)
+     * 
+     * Si el usuario autenticado es RECEPCIONISTA, registra su ID para auditoría.
      */
     @Transactional
     public BoardingPassDTO performCheckIn(CheckInRequest request, String passengerEmail) {
@@ -55,12 +62,12 @@ public class CheckInService {
             throw new IllegalStateException("El vuelo está cancelado, no se permite check-in");
         }
 
-        // Validar que esté dentro de la ventana de check-in
+        // Validar que esté dentro de la ventana de check-in (24h-2h antes del vuelo)
         if (!reservation.isCheckInWindowOpen()) {
             throw new IllegalStateException("El check-in solo está disponible entre 48 y 2 horas antes del vuelo");
         }
 
-        // Validar que no exista un check-in activo previo
+        // Validar que no exista un check-in activo previo para el mismo vuelo
         boolean hasActiveCheckIn = checkInRepository.existsActiveCheckInForPassengerAndFlight(
             reservation.getPassenger().getId(),
             flight.getId()
@@ -74,6 +81,23 @@ public class CheckInService {
         CheckIn checkIn = new CheckIn();
         checkIn.setReservation(reservation);
         checkIn.setStatus(CheckInStatus.ACTIVE);
+        
+        // Extraer receptionistId si el usuario autenticado es RECEPCIONISTA
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            boolean isReceptionist = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role -> role.equals("ROLE_RECEPCIONISTA"));
+            
+            if (isReceptionist) {
+                String receptionistEmail = authentication.getName();
+                Passenger receptionist = passengerRepository.findByEmail(receptionistEmail)
+                    .orElseThrow(() -> new IllegalStateException("Recepcionista no encontrado"));
+                checkIn.setReceptionistId(receptionist.getId());
+                log.info("Check-in realizado por recepcionista ID: {}", receptionist.getId());
+            }
+        }
+        
         checkIn = checkInRepository.save(checkIn);
 
         log.info("Check-in realizado para reserva {} en vuelo {}", 

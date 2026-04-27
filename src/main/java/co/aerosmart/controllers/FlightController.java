@@ -97,6 +97,18 @@ public class FlightController {
     }
 
     /**
+     * Obtiene todos los vuelos (incluyendo cancelados y pasados).
+     * GET /api/flights
+     * Requiere autenticación (solo para admin).
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<FlightDTO>> getAllFlights() {
+        List<FlightDTO> flights = flightService.getAllFlights();
+        return ResponseEntity.ok(flights);
+    }
+
+    /**
      * Busca vuelos por aeropuerto de origen.
      * GET /api/flights/public/origin/{originAirport}
      */

@@ -55,8 +55,10 @@ public class AuthController {
         return ResponseEntity.ok(profile);
     }
 
-    // TODO: Implementar updateProfile en PassengerService
-    /*
+    /**
+     * Actualiza el perfil del pasajero autenticado.
+     * PUT /api/auth/profile
+     */
     @PutMapping("/profile")
     public ResponseEntity<PassengerDTO> updateProfile(
             Authentication authentication,
@@ -65,5 +67,4 @@ public class AuthController {
         PassengerDTO updated = passengerService.updateProfile(email, request);
         return ResponseEntity.ok(updated);
     }
-    */
 }

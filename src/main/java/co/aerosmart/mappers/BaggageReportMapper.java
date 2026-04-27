@@ -24,6 +24,7 @@ public class BaggageReportMapper {
         dto.setDescription(report.getDescription());
         dto.setStatus(report.getStatus());
         dto.setFlight(flightMapper.toDTO(report.getFlight()));
+        dto.setReceptionistId(report.getReceptionistId());
         dto.setCreatedAt(report.getCreatedAt());
         dto.setReviewedAt(report.getReviewedAt());
         dto.setResolvedAt(report.getResolvedAt());

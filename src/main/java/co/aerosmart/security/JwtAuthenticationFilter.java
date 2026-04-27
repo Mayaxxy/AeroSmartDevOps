@@ -12,8 +12,10 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import co.aerosmart.services.PassengerService;
+import co.aerosmart.model.Role;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 /**
  * Filtro para autenticación JWT en cada request.
@@ -71,8 +73,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     // Extract role from token instead of database query
                     String role = jwtUtil.extractRole(jwt);
                     if (role == null || role.isEmpty()) {
-                        logger.warn("Token sin rol para: " + email + ", usando USER por defecto");
-                        role = "USER"; // Default role if not present in token
+                        logger.warn("Token sin rol para: " + email + ", rechazando autenticación");
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                    
+                    // Validate that the role is one of the valid roles (ADMIN, PASSENGER, RECEPCIONISTA)
+                    boolean isValidRole = Arrays.stream(Role.values())
+                        .anyMatch(validRole -> validRole.name().equals(role));
+                    
+                    if (!isValidRole) {
+                        logger.warn("Rol inválido en token para: " + email + ", rol: " + role);
+                        filterChain.doFilter(request, response);
+                        return;
                     }
                     
                     logger.info("Rol extraído del token: " + role);

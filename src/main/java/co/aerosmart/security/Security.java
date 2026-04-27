@@ -30,12 +30,15 @@ public class Security {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> cors.configure(http))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/flights/public/**").permitAll()
+                .requestMatchers("/api/airplanes/available").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/api/receptionist/**").hasRole("RECEPCIONISTA")
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session

@@ -62,8 +62,9 @@ public class Passenger {
     @Column(name = "second_last_name")
     private String secondLastName;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "role")
-    private String role;
+    private Role role;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

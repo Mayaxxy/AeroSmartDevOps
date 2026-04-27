@@ -36,6 +36,9 @@ public class CheckIn {
     @Column(nullable = false)
     private CheckInStatus status = CheckInStatus.ACTIVE;
 
+    @Column(name = "receptionist_id")
+    private Long receptionistId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

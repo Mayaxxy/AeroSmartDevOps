@@ -26,6 +26,7 @@ public class FlightService {
     private final FlightRepository flightRepository;
     private final FlightMapper flightMapper;
     private final NotificationService notificationService;
+    private final AirplaneService airplaneService;
 
     /**
      * Crea un nuevo vuelo (solo admin).
@@ -45,8 +46,19 @@ public class FlightService {
         flight.setGate(request.getGate());
         flight.setStatus(co.aerosmart.model.FlightStatus.SCHEDULED);
 
+        // Asignar avión si se proporcionó
+        if (request.getAirplaneId() != null) {
+            co.aerosmart.model.Airplane airplane = airplaneService.getAirplaneById(request.getAirplaneId());
+            if (!airplane.isAvailable()) {
+                throw new IllegalArgumentException("El avión seleccionado no está disponible");
+            }
+            flight.setAirplane(airplane);
+        }
+
         flight = flightRepository.save(flight);
-        log.info("Vuelo creado: {}", flight.getFlightCode());
+        log.info("Vuelo creado: {} con avión: {}", 
+            flight.getFlightCode(), 
+            flight.getAirplane() != null ? flight.getAirplane().getRegistration() : "sin asignar");
         return flightMapper.toDTO(flight);
     }
 

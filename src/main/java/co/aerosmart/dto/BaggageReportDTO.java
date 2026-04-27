@@ -18,6 +18,7 @@ public class BaggageReportDTO {
     private String description;
     private BaggageReportStatus status;
     private FlightDTO flight;
+    private Long receptionistId;
     private LocalDateTime createdAt;
     private LocalDateTime reviewedAt;
     private LocalDateTime resolvedAt;

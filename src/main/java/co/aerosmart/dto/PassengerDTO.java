@@ -1,5 +1,6 @@
 package co.aerosmart.dto;
 
+import co.aerosmart.model.Role;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
@@ -23,5 +24,5 @@ public class PassengerDTO {
     private java.time.LocalDateTime birthDate;
     private String email;
     private String phone;
-    private String role;
+    private Role role;
 }

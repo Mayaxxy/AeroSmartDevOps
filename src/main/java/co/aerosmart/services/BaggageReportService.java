@@ -8,9 +8,13 @@ import co.aerosmart.model.BaggageReportStatus;
 import co.aerosmart.model.Flight;
 import co.aerosmart.model.Passenger;
 import co.aerosmart.repository.BaggageReportRepository;
+import co.aerosmart.repository.PassengerRepository;
 import co.aerosmart.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +34,7 @@ public class BaggageReportService {
 
     private final BaggageReportRepository baggageReportRepository;
     private final ReservationRepository reservationRepository;
+    private final PassengerRepository passengerRepository;
     private final PassengerService passengerService;
     private final FlightService flightService;
     private final BaggageReportMapper baggageReportMapper;
@@ -41,6 +46,8 @@ public class BaggageReportService {
      * Valida que:
      * - El pasajero tenga una reserva en el vuelo
      * - No exceda el límite de reportes activos
+     * 
+     * Si el usuario autenticado es RECEPCIONISTA, registra su ID para auditoría.
      */
     @Transactional
     public BaggageReportDTO createReport(BaggageReportRequest request, String passengerEmail) {
@@ -71,6 +78,23 @@ public class BaggageReportService {
         report.setFlight(flight);
         report.setDescription(request.getDescription());
         report.setStatus(BaggageReportStatus.PENDING);
+        
+        // Extraer receptionistId si el usuario autenticado es RECEPCIONISTA
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            boolean isReceptionist = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(role -> role.equals("ROLE_RECEPCIONISTA"));
+            
+            if (isReceptionist) {
+                String receptionistEmail = authentication.getName();
+                Passenger receptionist = passengerRepository.findByEmail(receptionistEmail)
+                    .orElseThrow(() -> new IllegalStateException("Recepcionista no encontrado"));
+                report.setReceptionistId(receptionist.getId());
+                log.info("Reporte de equipaje creado por recepcionista ID: {}", receptionist.getId());
+            }
+        }
+        
         report = baggageReportRepository.save(report);
 
         log.info("Reporte de equipaje creado por pasajero {} para vuelo {}", 

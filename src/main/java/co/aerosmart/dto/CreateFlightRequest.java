@@ -28,4 +28,6 @@ public class CreateFlightRequest {
     private LocalDateTime arrivalTime;
 
     private String gate;
+
+    private Long airplaneId; // ID del avión asignado al vuelo (opcional)
 }

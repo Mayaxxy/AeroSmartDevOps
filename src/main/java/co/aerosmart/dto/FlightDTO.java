@@ -25,4 +25,5 @@ public class FlightDTO {
     private String gate;
     private LocalDateTime boardingStartTime;
     private LocalDateTime boardingCloseTime;
+    private AirplaneDTO airplane; // Información del avión asignado
 }

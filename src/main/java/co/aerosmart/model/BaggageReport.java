@@ -35,6 +35,9 @@ public class BaggageReport {
     @JoinColumn(name = "flight_id", nullable = false)
     private Flight flight;
 
+    @Column(name = "receptionist_id")
+    private Long receptionistId;
+
     @NotBlank(message = "La descripción es obligatoria")
     @Column(columnDefinition = "TEXT")
     private String description;
