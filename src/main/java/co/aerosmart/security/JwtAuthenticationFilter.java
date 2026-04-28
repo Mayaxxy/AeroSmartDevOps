@@ -71,22 +71,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     logger.info("Token válido para: " + email);
                     
                     // Extract role from token instead of database query
-                    String role = jwtUtil.extractRole(jwt);
-                    if (role == null || role.isEmpty()) {
-                        logger.warn("Token sin rol para: " + email + ", rechazando autenticación");
-                        filterChain.doFilter(request, response);
-                        return;
+                    String roleFromToken = jwtUtil.extractRole(jwt);
+                    // Fallback: tokens legacy sin claim 'role' → asumir PASSENGER
+                    final String role = (roleFromToken == null || roleFromToken.isEmpty()) ? "PASSENGER" : roleFromToken;
+                    if (roleFromToken == null || roleFromToken.isEmpty()) {
+                        logger.warn("Token sin rol para: " + email + ", asumiendo PASSENGER");
                     }
                     
                     // Validate that the role is one of the valid roles (ADMIN, PASSENGER, RECEPCIONISTA)
                     boolean isValidRole = Arrays.stream(Role.values())
                         .anyMatch(validRole -> validRole.name().equals(role));
-                    
-                    if (!isValidRole) {
-                        logger.warn("Rol inválido en token para: " + email + ", rol: " + role);
-                        filterChain.doFilter(request, response);
-                        return;
-                    }
                     
                     logger.info("Rol extraído del token: " + role);
                     

@@ -180,4 +180,58 @@ public class ReceptionistController {
         
         return ResponseEntity.status(HttpStatus.CREATED).body(report);
     }
+
+    /**
+     * Obtiene todos los reportes de equipaje.
+     * Solo usuarios con rol RECEPCIONISTA pueden realizar esta operación.
+     * 
+     * @param authentication Información de autenticación del usuario
+     * @return Lista de todos los reportes de equipaje
+     */
+    @GetMapping("/baggage-reports")
+    @PreAuthorize("hasRole('RECEPCIONISTA')")
+    @Operation(
+        summary = "Listar todos los reportes de equipaje",
+        description = "Obtiene todos los reportes de equipaje del sistema."
+    )
+    public ResponseEntity<java.util.List<BaggageReportDTO>> getAllBaggageReports(
+            Authentication authentication) {
+        
+        log.info("Recepcionista {} consultando todos los reportes de equipaje", 
+            authentication.getName());
+        
+        java.util.List<BaggageReportDTO> reports = baggageReportService.getAllReports();
+        
+        return ResponseEntity.ok(reports);
+    }
+
+    /**
+     * Actualiza el estado de un reporte de equipaje.
+     * Solo usuarios con rol RECEPCIONISTA pueden realizar esta operación.
+     * 
+     * Valida el flujo de estados: PENDING → IN_PROGRESS → RESOLVED
+     * 
+     * @param reportId ID del reporte
+     * @param status Nuevo estado del reporte
+     * @param authentication Información de autenticación del usuario
+     * @return BaggageReportDTO con el reporte actualizado
+     */
+    @PutMapping("/baggage-reports/{reportId}/status")
+    @PreAuthorize("hasRole('RECEPCIONISTA')")
+    @Operation(
+        summary = "Actualizar estado de reporte",
+        description = "Actualiza el estado de un reporte de equipaje siguiendo el flujo: PENDING → IN_PROGRESS → RESOLVED"
+    )
+    public ResponseEntity<BaggageReportDTO> updateReportStatus(
+            @PathVariable Long reportId,
+            @RequestParam String status,
+            Authentication authentication) {
+        
+        log.info("Recepcionista {} actualizando reporte {} a estado {}", 
+            authentication.getName(), reportId, status);
+        
+        BaggageReportDTO report = baggageReportService.updateReportStatus(reportId, status);
+        
+        return ResponseEntity.ok(report);
+    }
 }

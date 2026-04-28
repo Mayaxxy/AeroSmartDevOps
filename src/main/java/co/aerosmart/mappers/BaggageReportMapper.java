@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 public class BaggageReportMapper {
     
     private final FlightMapper flightMapper;
+    private final PassengerMapper passengerMapper;
     
     public BaggageReportDTO toDTO(BaggageReport report) {
         if (report == null) {
@@ -23,6 +24,7 @@ public class BaggageReportMapper {
         dto.setId(report.getId());
         dto.setDescription(report.getDescription());
         dto.setStatus(report.getStatus());
+        dto.setPassenger(passengerMapper.toDTO(report.getPassenger()));
         dto.setFlight(flightMapper.toDTO(report.getFlight()));
         dto.setReceptionistId(report.getReceptionistId());
         dto.setCreatedAt(report.getCreatedAt());

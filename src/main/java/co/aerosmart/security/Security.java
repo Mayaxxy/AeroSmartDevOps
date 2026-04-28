@@ -38,6 +38,7 @@ public class Security {
                 .requestMatchers("/api/airplanes/available").permitAll()
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 .requestMatchers("/api/receptionist/**").hasRole("RECEPCIONISTA")
                 .anyRequest().authenticated()
             )

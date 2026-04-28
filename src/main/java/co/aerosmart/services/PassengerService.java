@@ -9,10 +9,12 @@ import co.aerosmart.dto.ReservationDTO;
 import co.aerosmart.dto.UpdateProfileRequest;
 import co.aerosmart.mappers.PassengerMapper;
 import co.aerosmart.mappers.ReservationMapper;
+import co.aerosmart.model.Flight;
 import co.aerosmart.model.Passenger;
 import co.aerosmart.model.Reservation;
 import co.aerosmart.model.ReservationStatus;
 import co.aerosmart.model.Role;
+import co.aerosmart.repository.FlightRepository;
 import co.aerosmart.repository.PassengerRepository;
 import co.aerosmart.repository.ReservationRepository;
 import co.aerosmart.security.JwtUtil;
@@ -38,6 +40,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class PassengerService implements UserDetailsService {
 
     private final PassengerRepository passengerRepository;
@@ -46,6 +49,7 @@ public class PassengerService implements UserDetailsService {
     private final PassengerMapper passengerMapper;
     private final ReservationRepository reservationRepository;
     private final ReservationMapper reservationMapper;
+    private final FlightRepository flightRepository;
 
     /**
      * Registra un nuevo pasajero en el sistema.
@@ -65,12 +69,18 @@ public class PassengerService implements UserDetailsService {
 
         // Crear nuevo pasajero
         Passenger passenger = new Passenger();
+        passenger.setDocumentType(request.getDocumentType());
         passenger.setDocumentId(request.getDocumentId());
         passenger.setFirstName(request.getFirstName());
+        passenger.setMiddleName(request.getMiddleName());
         passenger.setLastName(request.getLastName());
+        passenger.setSecondLastName(request.getSecondLastName());
+        passenger.setBirthDate(request.getBirthDate() != null
+                ? request.getBirthDate().atStartOfDay() : null);
         passenger.setEmail(request.getEmail());
         passenger.setPhone(request.getPhone());
         passenger.setPassword(passwordEncoder.encode(request.getPassword()));
+        passenger.setAcceptedDataPolicy(request.isAcceptedDataPolicy());
         passenger.setRole(Role.PASSENGER); // Asignar rol por defecto
 
         passenger = passengerRepository.save(passenger);
@@ -83,6 +93,7 @@ public class PassengerService implements UserDetailsService {
 
     /**
      * Autentica un pasajero y genera token JWT.
+     * Rechaza usuarios con cuenta desactivada.
      */
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
@@ -93,6 +104,11 @@ public class PassengerService implements UserDetailsService {
         // Validar contraseña manualmente
         if (!passwordEncoder.matches(request.getPassword(), passenger.getPassword())) {
             throw new UsernameNotFoundException("Credenciales inválidas");
+        }
+
+        // Rechazar usuarios desactivados
+        if (Boolean.FALSE.equals(passenger.getActive())) {
+            throw new IllegalStateException("Cuenta desactivada. Contacte al administrador");
         }
 
         // Generar token JWT con rol
@@ -242,6 +258,69 @@ public class PassengerService implements UserDetailsService {
             ))
             .map(reservationMapper::toDTO)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Crea una reserva para el pasajero en un vuelo.
+     */
+    @Transactional
+    public ReservationDTO createReservation(String email, Long flightId) {
+        Passenger passenger = findByEmail(email);
+        Flight flight = flightRepository.findById(flightId)
+            .orElseThrow(() -> new IllegalArgumentException("Vuelo no encontrado"));
+
+        if (flight.getStatus() == co.aerosmart.model.FlightStatus.CANCELLED) {
+            throw new IllegalArgumentException("No se puede reservar un vuelo cancelado");
+        }
+        if (flight.getDepartureTime().isBefore(java.time.LocalDateTime.now())) {
+            throw new IllegalArgumentException("No se puede reservar un vuelo que ya salió");
+        }
+        if (reservationRepository.existsActiveReservation(passenger.getId(), flightId)) {
+            throw new IllegalArgumentException("Ya tienes una reserva activa para este vuelo");
+        }
+
+        // Validar capacidad del vuelo
+        if (flight.getAirplane() != null) {
+            long activeReservations = reservationRepository.findByFlightId(flightId).stream()
+                .filter(r -> r.getStatus() == ReservationStatus.ACTIVE)
+                .count();
+            
+            if (activeReservations >= flight.getAirplane().getCapacity()) {
+                throw new IllegalArgumentException("El vuelo está lleno. No hay asientos disponibles");
+            }
+        }
+
+        Reservation reservation = new Reservation();
+        reservation.setPassenger(passenger);
+        reservation.setFlight(flight);
+        reservation.setReservationCode(java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        reservation.setStatus(ReservationStatus.ACTIVE);
+        reservation = reservationRepository.save(reservation);
+
+        log.info("Reserva creada: {} para pasajero {} en vuelo {}", 
+            reservation.getReservationCode(), email, flight.getFlightCode());
+        return reservationMapper.toDTO(reservation);
+    }
+
+    /**
+     * Cancela una reserva del pasajero.
+     */
+    @Transactional
+    public void cancelReservation(String email, Long reservationId) {
+        Passenger passenger = findByEmail(email);
+        Reservation reservation = reservationRepository.findById(reservationId)
+            .orElseThrow(() -> new IllegalArgumentException("Reserva no encontrada"));
+
+        if (!reservation.getPassenger().getId().equals(passenger.getId())) {
+            throw new IllegalArgumentException("Esta reserva no pertenece al pasajero autenticado");
+        }
+        if (reservation.getStatus() == ReservationStatus.CANCELLED) {
+            throw new IllegalArgumentException("La reserva ya está cancelada");
+        }
+
+        reservation.setStatus(ReservationStatus.CANCELLED);
+        reservationRepository.save(reservation);
+        log.info("Reserva {} cancelada por pasajero {}", reservationId, email);
     }
 
     /**

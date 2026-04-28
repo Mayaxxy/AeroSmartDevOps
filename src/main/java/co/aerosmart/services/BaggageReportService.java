@@ -39,13 +39,13 @@ public class BaggageReportService {
     private final FlightService flightService;
     private final BaggageReportMapper baggageReportMapper;
 
-    private static final int MAX_ACTIVE_REPORTS = 5;
+    private static final int MAX_ACTIVE_REPORTS = 3;
 
     /**
      * Crea un reporte de equipaje.
      * Valida que:
-     * - El pasajero tenga una reserva en el vuelo
-     * - No exceda el límite de reportes activos
+     * - El pasajero tenga una reserva válida (no cancelada) en el vuelo
+     * - No exceda el límite de 3 reportes activos
      * 
      * Si el usuario autenticado es RECEPCIONISTA, registra su ID para auditoría.
      */
@@ -54,17 +54,17 @@ public class BaggageReportService {
         Passenger passenger = passengerService.findByEmail(passengerEmail);
         Flight flight = flightService.findById(request.getFlightId());
 
-        // Validar que el pasajero tenga una reserva en el vuelo
-        boolean hasReservation = reservationRepository.existsActiveReservation(
-            passenger.getId(), 
-            flight.getId()
-        );
+        // Validar que el pasajero tenga una reserva válida (no cancelada) en el vuelo
+        boolean hasValidReservation = reservationRepository.findByPassengerId(passenger.getId())
+            .stream()
+            .anyMatch(r -> r.getFlight().getId().equals(flight.getId()) 
+                && r.getStatus() != co.aerosmart.model.ReservationStatus.CANCELLED);
 
-        if (!hasReservation) {
-            throw new IllegalArgumentException("No tienes una reserva activa en este vuelo");
+        if (!hasValidReservation) {
+            throw new IllegalArgumentException("No tienes una reserva válida en este vuelo");
         }
 
-        // Validar límite de reportes activos
+        // Validar límite de reportes activos (PENDING + IN_PROGRESS)
         long activeReportsCount = baggageReportRepository.countActiveReportsByPassengerId(passenger.getId());
         if (activeReportsCount >= MAX_ACTIVE_REPORTS) {
             throw new IllegalStateException(
@@ -161,5 +161,32 @@ public class BaggageReportService {
             .stream()
             .map(baggageReportMapper::toDTO)
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene todos los reportes del sistema.
+     * Para uso de recepcionistas.
+     */
+    @Transactional(readOnly = true)
+    public List<BaggageReportDTO> getAllReports() {
+        return baggageReportRepository.findAll()
+            .stream()
+            .map(baggageReportMapper::toDTO)
+            .collect(Collectors.toList());
+    }
+
+    /**
+     * Actualiza el estado de un reporte usando String.
+     * Valida el flujo de estados y convierte el String a enum.
+     */
+    @Transactional
+    public BaggageReportDTO updateReportStatus(Long reportId, String statusStr) {
+        BaggageReportStatus newStatus;
+        try {
+            newStatus = BaggageReportStatus.valueOf(statusStr);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Estado inválido: " + statusStr);
+        }
+        return updateReportStatus(reportId, newStatus);
     }
 }

@@ -21,4 +21,5 @@ public class ReservationDTO {
     private LocalDateTime createdAt;
     private FlightDTO flight;
     private Boolean hasCheckIn;
+    private Long checkInId;
 }

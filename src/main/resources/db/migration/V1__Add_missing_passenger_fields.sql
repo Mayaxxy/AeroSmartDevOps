@@ -3,9 +3,8 @@ ALTER TABLE passengers
 ADD COLUMN IF NOT EXISTS middle_name VARCHAR(50),
 ADD COLUMN IF NOT EXISTS second_last_name VARCHAR(50);
 
--- Asegurar que birth_date existe y es NOT NULL
-ALTER TABLE passengers
-ALTER COLUMN birth_date SET NOT NULL;
+-- Asegurar que birth_date existe (nullable para compatibilidad con módulo admin)
+-- ALTER TABLE passengers ALTER COLUMN birth_date SET NOT NULL;
 
 -- Asegurar que document_type existe
 ALTER TABLE passengers

@@ -27,6 +27,9 @@ public class ReservationMapper {
         dto.setCreatedAt(reservation.getCreatedAt());
         dto.setFlight(flightMapper.toDTO(reservation.getFlight()));
         dto.setHasCheckIn(reservation.getCheckIn() != null);
+        if (reservation.getCheckIn() != null) {
+            dto.setCheckInId(reservation.getCheckIn().getId());
+        }
         
         return dto;
     }

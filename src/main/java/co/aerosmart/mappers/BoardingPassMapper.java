@@ -21,6 +21,7 @@ public class BoardingPassMapper {
         
         BoardingPassDTO dto = new BoardingPassDTO();
         dto.setId(boardingPass.getId());
+        dto.setCheckInId(boardingPass.getCheckIn().getId());
         dto.setBoardingToken(boardingPass.getBoardingToken());
         dto.setQrCodeBase64(qrCodeBase64);
         dto.setGeneratedAt(boardingPass.getGeneratedAt());
@@ -28,6 +29,10 @@ public class BoardingPassMapper {
         dto.setUsed(boardingPass.isUsed());
         dto.setFlight(flightMapper.toDTO(boardingPass.getCheckIn().getReservation().getFlight()));
         dto.setSeatNumber(boardingPass.getCheckIn().getReservation().getSeatNumber());
+        
+        // Nombre del pasajero para mostrar en el pase
+        var passenger = boardingPass.getCheckIn().getReservation().getPassenger();
+        dto.setPassengerName(passenger.getFirstName() + " " + passenger.getLastName());
         
         return dto;
     }

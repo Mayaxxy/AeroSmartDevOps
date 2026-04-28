@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class BoardingPassDTO {
     private Long id;
+    private Long checkInId;
     private String boardingToken;
     private String qrCodeBase64;
     private LocalDateTime generatedAt;
@@ -21,4 +22,5 @@ public class BoardingPassDTO {
     private boolean used;
     private FlightDTO flight;
     private String seatNumber;
+    private String passengerName;
 }

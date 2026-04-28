@@ -66,6 +66,10 @@ public class Passenger {
     @Column(name = "role")
     private Role role;
 
+    /** Estado de la cuenta: true = activa, false = desactivada */
+    @Column(name = "active")
+    private Boolean active = true;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 

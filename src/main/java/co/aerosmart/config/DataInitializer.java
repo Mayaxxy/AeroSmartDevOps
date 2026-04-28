@@ -6,6 +6,7 @@ import co.aerosmart.repository.PassengerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -22,16 +23,36 @@ public class DataInitializer implements CommandLineRunner {
 
     private final PassengerRepository passengerRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public void run(String... args) {
+        // Quitar NOT NULL de birth_date para compatibilidad con usuarios sin fecha de nacimiento
+        try {
+            jdbcTemplate.execute("ALTER TABLE passengers ALTER COLUMN birth_date DROP NOT NULL");
+            log.info("Migración: birth_date ahora es nullable");
+        } catch (Exception e) {
+            log.debug("birth_date ya es nullable: {}", e.getMessage());
+        }
+
+        // Migrar rol 'USER' a 'PASSENGER' (datos legacy)
+        int migrated = jdbcTemplate.update("UPDATE passengers SET role = 'PASSENGER' WHERE role = 'USER'");
+        if (migrated > 0) {
+            log.info("Migración: {} usuario(s) con rol USER migrados a PASSENGER", migrated);
+        }
+
+        // Rellenar active=true para registros existentes con null (migración segura)
+        int updated = jdbcTemplate.update("UPDATE passengers SET active = true WHERE active IS NULL");
+        if (updated > 0) {
+            log.info("Migración: {} usuario(s) actualizado(s) con active=true", updated);
+        }
         initializeAdminUser();
         initializeReceptionistUser();
     }
 
     private void initializeAdminUser() {
         String adminEmail = "admin@gmail.com";
-        
+
         if (!passengerRepository.existsByEmail(adminEmail)) {
             Passenger admin = new Passenger();
             admin.setEmail(adminEmail);
@@ -44,7 +65,8 @@ public class DataInitializer implements CommandLineRunner {
             admin.setBirthDate(LocalDateTime.of(1990, 1, 1, 0, 0));
             admin.setDocumentType("CC");
             admin.setRole(Role.ADMIN);
-            
+            admin.setActive(true);
+
             passengerRepository.save(admin);
             log.info("Usuario administrador creado: {}", adminEmail);
             log.info("Contraseña por defecto: Admin1234!");
@@ -55,7 +77,7 @@ public class DataInitializer implements CommandLineRunner {
 
     private void initializeReceptionistUser() {
         String receptionistEmail = "receptionist@gmail.com";
-        
+
         if (!passengerRepository.existsByEmail(receptionistEmail)) {
             Passenger receptionist = new Passenger();
             receptionist.setEmail(receptionistEmail);
@@ -68,7 +90,8 @@ public class DataInitializer implements CommandLineRunner {
             receptionist.setBirthDate(LocalDateTime.of(1992, 1, 1, 0, 0));
             receptionist.setDocumentType("CC");
             receptionist.setRole(Role.RECEPCIONISTA);
-            
+            receptionist.setActive(true);
+
             passengerRepository.save(receptionist);
             log.info("Usuario recepcionista creado: {}", receptionistEmail);
             log.info("Contraseña por defecto: Receptionist1234!");

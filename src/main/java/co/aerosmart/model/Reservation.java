@@ -13,9 +13,7 @@ import java.time.LocalDateTime;
  * Un pasajero solo puede ver información de vuelos asociados a su reserva.
  */
 @Entity
-@Table(name = "reservations", uniqueConstraints = {
-    @UniqueConstraint(columnNames = {"passenger_id", "flight_id"})
-})
+@Table(name = "reservations")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
