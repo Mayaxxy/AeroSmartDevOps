@@ -105,7 +105,14 @@ class BaggageReportServiceTest {
         // Arrange
         when(passengerService.findByEmail("passenger@test.com")).thenReturn(passenger);
         when(flightService.findById(100L)).thenReturn(flight);
-        when(reservationRepository.existsActiveReservation(1L, 100L)).thenReturn(true);
+        
+        // Mock reservation with ACTIVE status
+        Reservation activeReservation = new Reservation();
+        activeReservation.setPassenger(passenger);
+        activeReservation.setFlight(flight);
+        activeReservation.setStatus(co.aerosmart.model.ReservationStatus.ACTIVE);
+        when(reservationRepository.findByPassengerId(1L)).thenReturn(Collections.singletonList(activeReservation));
+        
         when(baggageReportRepository.countActiveReportsByPassengerId(1L)).thenReturn(0L);
         when(baggageReportRepository.save(any(BaggageReport.class))).thenReturn(savedReport);
         when(baggageReportMapper.toDTO(savedReport)).thenReturn(reportDTO);
@@ -139,7 +146,14 @@ class BaggageReportServiceTest {
         // Arrange
         when(passengerService.findByEmail("passenger@test.com")).thenReturn(passenger);
         when(flightService.findById(100L)).thenReturn(flight);
-        when(reservationRepository.existsActiveReservation(1L, 100L)).thenReturn(true);
+        
+        // Mock reservation with ACTIVE status
+        Reservation activeReservation = new Reservation();
+        activeReservation.setPassenger(passenger);
+        activeReservation.setFlight(flight);
+        activeReservation.setStatus(co.aerosmart.model.ReservationStatus.ACTIVE);
+        when(reservationRepository.findByPassengerId(1L)).thenReturn(Collections.singletonList(activeReservation));
+        
         when(baggageReportRepository.countActiveReportsByPassengerId(1L)).thenReturn(0L);
         when(passengerRepository.findByEmail("receptionist@test.com")).thenReturn(Optional.of(receptionist));
         
@@ -177,14 +191,20 @@ class BaggageReportServiceTest {
         // Arrange
         when(passengerService.findByEmail("passenger@test.com")).thenReturn(passenger);
         when(flightService.findById(100L)).thenReturn(flight);
-        when(reservationRepository.existsActiveReservation(1L, 100L)).thenReturn(false);
+        
+        // Mock reservation with CANCELLED status
+        Reservation cancelledReservation = new Reservation();
+        cancelledReservation.setPassenger(passenger);
+        cancelledReservation.setFlight(flight);
+        cancelledReservation.setStatus(co.aerosmart.model.ReservationStatus.CANCELLED);
+        when(reservationRepository.findByPassengerId(1L)).thenReturn(Collections.singletonList(cancelledReservation));
 
         // Act & Assert
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
             () -> baggageReportService.createReport(request, "passenger@test.com")
         );
-        assertEquals("No tienes una reserva activa en este vuelo", exception.getMessage());
+        assertEquals("No tienes una reserva válida en este vuelo", exception.getMessage());
         verify(baggageReportRepository, never()).save(any());
     }
 
@@ -193,15 +213,22 @@ class BaggageReportServiceTest {
         // Arrange
         when(passengerService.findByEmail("passenger@test.com")).thenReturn(passenger);
         when(flightService.findById(100L)).thenReturn(flight);
-        when(reservationRepository.existsActiveReservation(1L, 100L)).thenReturn(true);
-        when(baggageReportRepository.countActiveReportsByPassengerId(1L)).thenReturn(5L);
+        
+        // Mock reservation with ACTIVE status
+        Reservation activeReservation = new Reservation();
+        activeReservation.setPassenger(passenger);
+        activeReservation.setFlight(flight);
+        activeReservation.setStatus(co.aerosmart.model.ReservationStatus.ACTIVE);
+        when(reservationRepository.findByPassengerId(1L)).thenReturn(Collections.singletonList(activeReservation));
+        
+        when(baggageReportRepository.countActiveReportsByPassengerId(1L)).thenReturn(3L);
 
         // Act & Assert
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
             () -> baggageReportService.createReport(request, "passenger@test.com")
         );
-        assertTrue(exception.getMessage().contains("límite de 5 reportes activos"));
+        assertTrue(exception.getMessage().contains("límite de 3 reportes activos"));
         verify(baggageReportRepository, never()).save(any());
     }
 }

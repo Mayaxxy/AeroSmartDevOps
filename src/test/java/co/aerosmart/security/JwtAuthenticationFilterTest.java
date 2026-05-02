@@ -135,8 +135,10 @@ class JwtAuthenticationFilterTest {
         // Act
         filter.doFilterInternal(request, response, filterChain);
 
-        // Assert
-        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        // Assert - Invalid role defaults to PASSENGER
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_PASSENGER")));
         verify(filterChain).doFilter(request, response);
     }
 
@@ -155,8 +157,10 @@ class JwtAuthenticationFilterTest {
         // Act
         filter.doFilterInternal(request, response, filterChain);
 
-        // Assert
-        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        // Assert - Null role defaults to PASSENGER
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+            .anyMatch(a -> a.getAuthority().equals("ROLE_PASSENGER")));
         verify(filterChain).doFilter(request, response);
     }
 
@@ -176,7 +180,9 @@ class JwtAuthenticationFilterTest {
         filter.doFilterInternal(request, response, filterChain);
 
         // Assert
-        assertNull(SecurityContextHolder.getContext().getAuthentication());
+        assertNotNull(SecurityContextHolder.getContext().getAuthentication());
+        assertTrue(SecurityContextHolder.getContext().getAuthentication().getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_PASSENGER")));
         verify(filterChain).doFilter(request, response);
     }
 
