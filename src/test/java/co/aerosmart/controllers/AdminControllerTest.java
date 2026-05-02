@@ -1,9 +1,9 @@
 package co.aerosmart.controllers;
 
-import co.aerosmart.dto.CreateReceptionistRequest;
-import co.aerosmart.dto.PassengerDTO;
+import co.aerosmart.dto.*;
 import co.aerosmart.model.Role;
-import co.aerosmart.services.PassengerService;
+import co.aerosmart.services.AdminService;
+import co.aerosmart.services.FlightService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,95 +13,71 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-/**
- * Tests unitarios para AdminController.
- */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdminController Unit Tests")
 class AdminControllerTest {
 
     @Mock
-    private PassengerService passengerService;
+    private AdminService adminService;
+
+    @Mock
+    private FlightService flightService;
+
+    @Mock
+    private Authentication authentication;
 
     @InjectMocks
     private AdminController adminController;
 
-    private CreateReceptionistRequest validRequest;
-    private PassengerDTO receptionistDTO;
+    private AdminUserDTO userDTO;
 
     @BeforeEach
     void setUp() {
-        validRequest = new CreateReceptionistRequest();
-        validRequest.setDocumentType("CC");
-        validRequest.setDocumentId("987654321");
-        validRequest.setFirstName("Jane");
-        validRequest.setLastName("Smith");
-        validRequest.setEmail("jane.smith@example.com");
-        validRequest.setPhone("+573001111111");
-        validRequest.setPassword("SecurePass123!");
-
-        receptionistDTO = new PassengerDTO();
-        receptionistDTO.setId(1L);
-        receptionistDTO.setDocumentId("987654321");
-        receptionistDTO.setFirstName("Jane");
-        receptionistDTO.setLastName("Smith");
-        receptionistDTO.setEmail("jane.smith@example.com");
-        receptionistDTO.setPhone("+573001111111");
-        receptionistDTO.setRole(Role.RECEPCIONISTA);
+        userDTO = new AdminUserDTO();
+        userDTO.setId(1L);
+        userDTO.setEmail("jane.smith@example.com");
     }
 
     @Test
-    @DisplayName("createReceptionist debe crear recepcionista y retornar 201 CREATED")
-    void createReceptionist_shouldCreateReceptionistAndReturn201() {
-        // Arrange
-        when(passengerService.createReceptionist(any(CreateReceptionistRequest.class)))
-            .thenReturn(receptionistDTO);
+    @DisplayName("getAllUsers debe retornar lista de usuarios")
+    void getAllUsers_shouldReturnUserList() {
+        when(adminService.getAllUsers(any(), any())).thenReturn(List.of(userDTO));
 
-        // Act
-        ResponseEntity<PassengerDTO> response = adminController.createReceptionist(validRequest);
+        ResponseEntity<List<AdminUserDTO>> response = adminController.getAllUsers(null, null);
 
-        // Assert
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
-        assertThat(response.getBody()).isNotNull();
-        assertThat(response.getBody().getEmail()).isEqualTo("jane.smith@example.com");
-        assertThat(response.getBody().getRole()).isEqualTo(Role.RECEPCIONISTA);
-        verify(passengerService).createReceptionist(validRequest);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(1);
     }
 
     @Test
-    @DisplayName("createReceptionist debe llamar al servicio con el request correcto")
-    void createReceptionist_shouldCallServiceWithCorrectRequest() {
-        // Arrange
-        when(passengerService.createReceptionist(any(CreateReceptionistRequest.class)))
-            .thenReturn(receptionistDTO);
+    @DisplayName("getUserById debe retornar usuario por ID")
+    void getUserById_shouldReturnUser() {
+        when(adminService.getUserById(1L)).thenReturn(userDTO);
 
-        // Act
-        adminController.createReceptionist(validRequest);
+        ResponseEntity<AdminUserDTO> response = adminController.getUserById(1L);
 
-        // Assert
-        verify(passengerService).createReceptionist(validRequest);
-    }
-
-    @Test
-    @DisplayName("createReceptionist debe retornar el DTO del recepcionista creado")
-    void createReceptionist_shouldReturnCreatedReceptionistDTO() {
-        // Arrange
-        when(passengerService.createReceptionist(any(CreateReceptionistRequest.class)))
-            .thenReturn(receptionistDTO);
-
-        // Act
-        ResponseEntity<PassengerDTO> response = adminController.createReceptionist(validRequest);
-
-        // Assert
-        assertThat(response.getBody()).isEqualTo(receptionistDTO);
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getId()).isEqualTo(1L);
-        assertThat(response.getBody().getFirstName()).isEqualTo("Jane");
-        assertThat(response.getBody().getLastName()).isEqualTo("Smith");
+    }
+
+    @Test
+    @DisplayName("deleteUser debe retornar 204 NO CONTENT")
+    void deleteUser_shouldReturn204() {
+        when(authentication.getName()).thenReturn("admin@test.com");
+        doNothing().when(adminService).deleteUser(any(), any());
+
+        ResponseEntity<Void> response = adminController.deleteUser(authentication, 1L);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        verify(adminService).deleteUser("admin@test.com", 1L);
     }
 }
