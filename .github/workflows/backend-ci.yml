@@ -1,0 +1,55 @@
+name: FlyTrack Backend CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Dar permisos a Gradle
+        run: chmod +x gradlew
+
+      - name: Compilar proyecto
+        run: ./gradlew build -x test
+
+      - name: Ejecutar pruebas unitarias
+        run: ./gradlew test
+
+      - name: Generar reporte de cobertura
+        run: ./gradlew jacocoTestReport
+
+      - name: Login a Azure Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: flytrackregistry.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build y push imagen Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: flytrackregistry.azurecr.io/flytrack-backend:latest
+
+      - name: Desplegar en Azure Web App
+        if: github.ref == 'refs/heads/main'
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: flytrack-backend-app
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          images: flytrackregistry.azurecr.io/flytrack-backend:latest
