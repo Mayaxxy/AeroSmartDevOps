@@ -47,12 +47,11 @@ jobs:
           DB_URL: jdbc:postgresql://localhost:5432/aerosmart
           DB_USER: postgres
           DB_PASSWORD: postgres
-          JWT_SECRET: FlyTrackSuperSecretKeyParaJWT2025AeroPuertoSmart!
-          JWT_EXPIRATION: 86400000
-
-      
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
 
       - name: Login a Azure Container Registry
+        if: github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
           registry: flytrackregistry.azurecr.io
@@ -60,16 +59,32 @@ jobs:
           password: ${{ secrets.ACR_PASSWORD }}
 
       - name: Build y push imagen Docker
+        if: github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v5
         with:
           context: .
-          push: ${{ github.ref == 'refs/heads/main' }}
+          push: true
           tags: flytrackregistry.azurecr.io/flytrack-backend:latest
 
-      - name: Desplegar en Azure Web App
+      - name: Desplegar en VM por SSH
         if: github.ref == 'refs/heads/main'
-        uses: azure/webapps-deploy@v2
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          app-name: flytrack-backend-app
-          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
-          images: flytrackregistry.azurecr.io/flytrack-backend:latest
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            docker login flytrackregistry.azurecr.io -u ${{ secrets.ACR_USERNAME }} -p ${{ secrets.ACR_PASSWORD }}
+            docker pull flytrackregistry.azurecr.io/flytrack-backend:latest
+            docker stop flytrack-backend || true
+            docker rm flytrack-backend || true
+            docker run -d \
+              --name flytrack-backend \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              -e DB_URL="jdbc:postgresql://flytrack-postgres-server.postgres.database.azure.com:5432/aerosmart" \
+              -e DB_USER="postgresadmin" \
+              -e DB_PASSWORD="FlyTrack2025Secure!" \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e JWT_EXPIRATION="${{ secrets.JWT_EXPIRATION }}" \
+              flytrackregistry.azurecr.io/flytrack-backend:latest
